@@ -38,12 +38,12 @@ function Evidence() {
               <h2 className="text-xl font-semibold">Documents</h2>
               <ul className="mt-4 divide-y divide-border">
                 {c.documents.map((d) => {
-                  const S = STATUS[d.status];
+                  const S = STATUS[d.status] ?? STATUS.unsure;
                   return (
                     <li key={d.key} className="grid gap-2 py-3 md:grid-cols-[1.2fr_auto_2fr] md:items-center">
                       <span className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4 text-muted-foreground" />{d.label}</span>
                       <button type="button" title="Click to change status"
-                        onClick={() => update({ documents: c.documents.map((x) => x.key === d.key ? { ...x, status: ORDER[(ORDER.indexOf(x.status) + 1) % 3] } : x) })}
+                        onClick={() => update({ documents: c.documents.map((x) => x.key === d.key ? { ...x, status: ORDER[(ORDER.indexOf(x.status) + 1) % 3] ?? "have" } : x) })}
                         className={`flex w-fit items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm ${S.cls}`}>
                         <S.icon className="h-4 w-4" /> {S.label}
                       </button>

@@ -24,10 +24,10 @@ export const Route = createFileRoute("/intake")({
 const EMPTY: IntakeAnswers = {
   tenantName: "", landlordName: "", address: "", tenancyStart: "", tenancyEnd: "",
   depositAmount: 0, disputedAmount: 0, scheme: "unknown", deductionReason: "", tenantView: "",
-  documents: Object.fromEntries(DOC_TYPES.map((d) => [d.key, "unsure"])),
+  documents: Object.fromEntries(DOC_TYPES.map((d) => [d.key, "unsure" as DocStatus])),
 };
 
-const STEP_TITLES = ["Your tenancy", "The deposit", "The dispute", "Your documents"];
+const STEP_TITLES: string[] = ["Your tenancy", "The deposit", "The dispute", "Your documents"];
 
 function Intake() {
   const [step, setStep] = useState(0);
@@ -52,7 +52,7 @@ function Intake() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 md:px-6">
-      <PageHeader eyebrow={`Step ${step + 1} of 4`} title={STEP_TITLES[step]} intro="Answer what you can — you can edit everything later." />
+      <PageHeader eyebrow={`Step ${step + 1} of 4`} title={STEP_TITLES[step] ?? ""} intro="Answer what you can — you can edit everything later." />
       <div className="mb-6 flex gap-2" aria-hidden>
         {STEP_TITLES.map((_, i) => <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-accent" : "bg-border"}`} />)}
       </div>
@@ -103,7 +103,7 @@ function Intake() {
                 <div className="flex gap-1" role="group" aria-label={d.label}>
                   {(["have", "missing", "unsure"] as DocStatus[]).map((st) => (
                     <button key={st} type="button" onClick={() => set("documents", { ...a.documents, [d.key]: st })}
-                      className={`rounded-full px-3 py-1 text-sm ${a.documents[d.key] === st ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                      className={`rounded-full px-3 py-1 text-sm ${(a.documents[d.key] ?? "unsure") === st ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                       {st === "have" ? "Have it" : st === "missing" ? "Don't have" : "Not sure"}
                     </button>
                   ))}
