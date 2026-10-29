@@ -58,7 +58,7 @@ export async function runAnalysis(input: AnalysisInput, signal?: AbortSignal): P
       system: INSTRUCTIONS,
       messages: [{ role: "user", content: buildPrompt(input) }],
       output: Output.object({ schema: analysisOutputSchema }),
-      abortSignal: signal,
+      ...(signal ? { abortSignal: signal } : {}),
       maxRetries: 0,
       providerOptions: {
         openai: {
