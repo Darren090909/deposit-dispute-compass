@@ -22,7 +22,7 @@ export const FACT_KIND_LABELS: Record<FactKind, string> = {
 export const chunkSchema = z.object({
   /** e.g. "page 2" or "lines 1–40" */
   location: z.string().max(80),
-  text: z.string(),
+  text: z.string().max(UPLOAD_LIMITS.maxTotalChars),
 });
 export const extractedDocSchema = z.object({
   filename: z.string().max(200),
@@ -38,13 +38,19 @@ export const analysisInputSchema = z.object({
     address: z.string().max(300),
     tenancyStart: z.string().max(20),
     tenancyEnd: z.string().max(20),
-    depositAmount: z.number(),
-    disputedAmount: z.number(),
+    depositAmount: z.number().finite().positive(),
+    disputedAmount: z.number().finite().positive(),
     scheme: z.string().max(40),
     deductionReason: z.string().max(2000),
     tenantView: z.string().max(5000),
   }),
   documents: z.array(extractedDocSchema).max(UPLOAD_LIMITS.maxFiles),
+}).superRefine((input, ctx) => {
+  if (input.answers.disputedAmount > input.answers.depositAmount)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "The disputed amount can't be more than the deposit." });
+  const total = input.documents.reduce((n, d) => n + d.chunks.reduce((m, c) => m + c.text.length, 0), 0);
+  if (total > UPLOAD_LIMITS.maxTotalChars)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Documents exceed the 120,000-character text limit." });
 });
 export type AnalysisInput = z.infer<typeof analysisInputSchema>;
 
@@ -53,7 +59,7 @@ export const analysisOutputSchema = z.object({
   summary: z.string(),
   events: z.array(
     z.object({
-      date: z.string().nullable(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
       description: z.string(),
       kind: z.enum(FACT_KINDS),
       sourceRef: z.string().nullable(),

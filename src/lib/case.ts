@@ -1,3 +1,5 @@
+import type { AnalysisOutput } from "./analysis-schema";
+
 export type DocStatus = "have" | "missing" | "unsure";
 export type Scheme = "DPS" | "mydeposits" | "TDS" | "unknown" | "not-protected";
 
@@ -35,6 +37,8 @@ export interface Case {
   missing: string[];
   nextSteps: string[];
   letter: string;
+  analysis?: AnalysisOutput;
+  letterOrigin?: "ai" | "template";
 }
 
 export const DOC_TYPES: { key: string; label: string }[] = [
