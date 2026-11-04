@@ -9,4 +9,5 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Case data lives in src/lib/case.ts (types, sample case, rule-based builders) and is persisted to localStorage via src/lib/case-store.tsx; no backend, because the prototype must run without accounts or paid services.
+- Case data and optional AI results are persisted by the existing case store in localStorage; documents and extracted text remain transient so no account or cloud storage is needed.
+- AI inference uses the Gateway SDK inside a TanStack server function, with browser extraction and a maintained source allowlist; this keeps credentials server-side and citations constrained.
