@@ -12,6 +12,8 @@ export const Route = createFileRoute("/options")({
       { name: "description", content: "How tenancy deposit disputes work in England, with links to official sources." },
       { property: "og:title", content: "Resolution options — RentResolve" },
       { property: "og:description", content: "Talk to your landlord, use your scheme's free dispute service, or get advice." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Options,

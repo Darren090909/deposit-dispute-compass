@@ -13,6 +13,8 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "Your deposit dispute at a glance: summary, amount disputed, timeline and next steps." },
       { property: "og:title", content: "Case dashboard — RentResolve" },
       { property: "og:description", content: "Summary, timeline and next steps for your deposit dispute." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Dashboard,
