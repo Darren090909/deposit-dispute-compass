@@ -26,7 +26,13 @@ export function chunkText(text: string, linesPer = 40): ExtractedDoc["chunks"] {
 
 /** Extracts text in the browser. Files themselves are never uploaded. */
 export async function extractFile(file: File): Promise<ExtractedDoc> {
-  if (ext(file.name) !== ".pdf") return { filename: file.name, chunks: chunkText(await file.text()) };
+  const error = checkFile(file);
+  if (error) throw new ExtractError(error);
+  if (ext(file.name) !== ".pdf") {
+    const text = await file.text();
+    if (text.length > UPLOAD_LIMITS.maxTotalChars) throw new ExtractError(`${file.name}: text exceeds 120,000 characters.`);
+    return { filename: file.name, chunks: chunkText(text) };
+  }
 
   const pdfjs = await import("pdfjs-dist");
   const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
@@ -37,13 +43,19 @@ export async function extractFile(file: File): Promise<ExtractedDoc> {
   } catch {
     throw new ExtractError(`${file.name}: this PDF couldn't be opened. It may be damaged or password-protected.`);
   }
-  const chunks: ExtractedDoc["chunks"] = [];
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const content = await page.getTextContent();
-    const text = content.items.map((it) => ("str" in it ? it.str : "")).join(" ").replace(/\s+/g, " ").trim();
-    if (text) chunks.push({ location: `page ${p}`, text });
-  }
-  if (!chunks.length) throw new ExtractError(`${file.name}: no readable text found. Scanned images aren't supported yet.`);
-  return { filename: file.name, chunks };
+  try {
+    const chunks: ExtractedDoc["chunks"] = [];
+    let total = 0;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const text = content.items.map((it) => ("str" in it ? it.str : "")).join(" ").replace(/\s+/g, " ").trim();
+      total += text.length;
+      if (total > UPLOAD_LIMITS.maxTotalChars || p > 500) throw new ExtractError(`${file.name}: this PDF contains too much text or too many pages.`);
+      if (text) chunks.push({ location: `page ${p}`, text });
+      page.cleanup();
+    }
+    if (!chunks.length) throw new ExtractError(`${file.name}: no readable text found. Scanned images aren't supported yet.`);
+    return { filename: file.name, chunks };
+  } finally { await pdf.destroy(); }
 }

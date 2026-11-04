@@ -56,7 +56,7 @@ export async function runAnalysis(input: AnalysisInput, signal?: AbortSignal): P
         schema: zodToJsonSchema(analysisOutputSchema, { $refStrategy: "none" }) } },
       reasoning: { effort: "medium", summary: "auto" },
       include: ["reasoning.encrypted_content"],
-    }, { signal, maxRetries: 0 });
+    }, { ...(signal ? { signal } : {}), maxRetries: 0 });
     let text = "";
     let completed = false;
     let refused = false;

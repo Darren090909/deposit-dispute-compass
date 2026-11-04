@@ -13,6 +13,8 @@ export const Route = createFileRoute("/evidence")({
       { name: "description", content: "Your documents, the facts they support, and the information still missing." },
       { property: "og:title", content: "Evidence review — RentResolve" },
       { property: "og:description", content: "See which documents support your deposit dispute." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Evidence,

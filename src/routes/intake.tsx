@@ -16,6 +16,8 @@ export const Route = createFileRoute("/intake")({
       { name: "description", content: "Answer a few questions about your deposit dispute and the documents you have." },
       { property: "og:title", content: "Start my case — RentResolve" },
       { property: "og:description", content: "Guided questions about your tenancy deposit dispute." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Intake,

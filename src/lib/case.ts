@@ -37,7 +37,7 @@ export interface Case {
   missing: string[];
   nextSteps: string[];
   letter: string;
-  analysis?: AnalysisOutput;
+  analysis?: AnalysisOutput | undefined;
   letterOrigin?: "ai" | "template";
 }
 

@@ -12,6 +12,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "A calm, step-by-step guide for students and private renters in England disputing a deposit deduction." },
       { property: "og:title", content: "RentResolve — Your tenancy dispute, made clearer" },
       { property: "og:description", content: "Organise your evidence, understand the deposit dispute process and draft a clear email." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,

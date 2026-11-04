@@ -16,6 +16,8 @@ export const Route = createFileRoute("/letter")({
       { name: "description", content: "An editable email to your landlord or agent about a deposit deduction, ready to copy." },
       { property: "og:title", content: "Draft letter — RentResolve" },
       { property: "og:description", content: "Edit and copy a polite deposit dispute email." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Letter,
