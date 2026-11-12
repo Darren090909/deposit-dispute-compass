@@ -1,6 +1,6 @@
 import { GatewayError, streamResponse } from "@lovable.dev/ai-gateway";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { analysisOutputSchema, type AnalysisInput, type AnalysisResult } from "./analysis-schema";
+import { analysisOutputSchema, analysisResponseSchema, type AnalysisInput, type AnalysisResult } from "./analysis-schema";
 import { LEGAL_SOURCES } from "./legal-sources";
 import { validateAnalysisSources } from "./analysis-utils";
 
@@ -14,7 +14,7 @@ Rules:
 - Keep output concise: at most 12 events, 12 evidence items, 6 conflicts, 8 missing items, 8 questions and 5 procedure notes.
 - Use ONLY the supplied documents and the tenant's answers. Never invent facts, dates, amounts or documents.
 - Classify every statement with "kind":
-  documented = stated in a supplied document (give sourceRef as "<filename>, <location>");
+  documented = stated in a supplied document (copy its exact SOURCE_REF, including the full supplied location range; never invent a narrower range);
   user_reported = stated only in the tenant's answers (sourceRef "Your answers");
   allegation = a claim one party makes that is not independently shown (e.g. the landlord says there is damage);
   ai_interpretation = your own inference or reading of the material (sourceRef null or the material it is based on).
@@ -30,7 +30,7 @@ ${LEGAL_SOURCES.map((s) => `- ${s.id}: ${s.title} — ${s.covers}`).join("\n")}`
 function buildPrompt(input: AnalysisInput) {
   const a = input.answers;
   const docs = input.documents
-    .map((d) => d.chunks.map((c) => `<<${d.filename} | ${c.location}>>\n${c.text}`).join("\n\n"))
+    .map((d) => d.chunks.map((c) => `SOURCE_REF: ${d.filename}, ${c.location}\n${c.text}`).join("\n\n"))
     .join("\n\n");
   return `TENANT'S ANSWERS (user_reported):
 Name: ${a.tenantName}
@@ -42,7 +42,7 @@ Scheme: ${a.scheme}
 Deduction reason given: ${a.deductionReason}
 Tenant's view: ${a.tenantView}
 
-DOCUMENTS (each block is labelled <<filename | location>>):
+DOCUMENTS (copy the exact SOURCE_REF for statements based on each block):
 ${docs || "(no documents supplied)"}`;
 }
 
@@ -53,7 +53,7 @@ export async function runAnalysis(input: AnalysisInput, signal?: AbortSignal): P
       instructions: INSTRUCTIONS,
       input: [{ role: "user", content: buildPrompt(input) }],
       text: { format: { type: "json_schema", name: "tenancy_analysis", strict: true,
-        schema: zodToJsonSchema(analysisOutputSchema, { $refStrategy: "none" }) } },
+        schema: zodToJsonSchema(analysisResponseSchema(input.documents), { $refStrategy: "none" }) } },
       reasoning: { effort: "medium", summary: "auto" },
       include: ["reasoning.encrypted_content"],
     }, { ...(signal ? { signal } : {}), maxRetries: 0 });

@@ -85,8 +85,8 @@ function Index() {
             official sources.
           </p>
           <p className="mt-4 text-muted-foreground">
-            Everything we organise for you is a starting point you can edit. We don't decide who is right — and this prototype
-            does not use a live AI model.
+            Everything we organise for you is a starting point you can edit. We don't decide who is right.
+            Optional AI analysis reads your answers and documents only with your consent; the fictional sample is written in advance.
           </p>
         </div>
       </section>

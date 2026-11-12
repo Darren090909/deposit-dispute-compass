@@ -21,12 +21,12 @@ export const FACT_KIND_LABELS: Record<FactKind, string> = {
 
 export const chunkSchema = z.object({
   /** e.g. "page 2" or "lines 1–40" */
-  location: z.string().max(80),
-  text: z.string().max(UPLOAD_LIMITS.maxTotalChars),
+  location: z.string().trim().min(1).max(80),
+  text: z.string().min(1).max(UPLOAD_LIMITS.maxTotalChars),
 });
 export const extractedDocSchema = z.object({
-  filename: z.string().max(200),
-  chunks: z.array(chunkSchema).max(500),
+  filename: z.string().trim().min(1).max(200),
+  chunks: z.array(chunkSchema).min(1).max(500),
 });
 export type ExtractedDoc = z.infer<typeof extractedDocSchema>;
 
@@ -46,6 +46,8 @@ export const analysisInputSchema = z.object({
   }),
   documents: z.array(extractedDocSchema).max(UPLOAD_LIMITS.maxFiles),
 }).superRefine((input, ctx) => {
+  if (new Set(input.documents.map(d => d.filename)).size !== input.documents.length)
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Each document needs a unique filename." });
   if (input.answers.disputedAmount > input.answers.depositAmount)
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "The disputed amount can't be more than the deposit." });
   const total = input.documents.reduce((n, d) => n + d.chunks.reduce((m, c) => m + c.text.length, 0), 0);
@@ -80,5 +82,15 @@ export const analysisOutputSchema = z.object({
   draftResponse: z.string(),
 });
 export type AnalysisOutput = z.infer<typeof analysisOutputSchema>;
+
+/** Constrain generation to the exact references supplied in this request. */
+export function analysisResponseSchema(documents: ExtractedDoc[]) {
+  const sourceRef = z.enum(["Your answers", ...documents.flatMap(d => d.chunks.map(c => `${d.filename}, ${c.location}`))]).nullable();
+  const fields = analysisOutputSchema.shape;
+  return analysisOutputSchema.extend({
+    events: z.array(fields.events.element.extend({ sourceRef })),
+    evidence: z.array(fields.evidence.element.extend({ sourceRef })),
+  });
+}
 
 export type AnalysisResult = { ok: true; analysis: AnalysisOutput } | { ok: false; status: number; message: string };

@@ -37,10 +37,12 @@ export async function extractFile(file: File): Promise<ExtractedDoc> {
   const pdfjs = await import("pdfjs-dist");
   const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-  let pdf;
+   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), verbosity: 0 });
+   let pdf;
   try {
-    pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+     pdf = await task.promise;
   } catch {
+     await task.destroy();
     throw new ExtractError(`${file.name}: this PDF couldn't be opened. It may be damaged or password-protected.`);
   }
   try {
@@ -57,5 +59,5 @@ export async function extractFile(file: File): Promise<ExtractedDoc> {
     }
     if (!chunks.length) throw new ExtractError(`${file.name}: no readable text found. Scanned images aren't supported yet.`);
     return { filename: file.name, chunks };
-  } finally { await pdf.destroy(); }
+   } finally { await task.destroy(); }
 }

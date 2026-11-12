@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +36,12 @@ function AnalysisWorkspace({ c }: { c: Case }) {
   const navigate = useNavigate();
   const analyse = useServerFn(analyseCase);
   const picker = useRef<HTMLInputElement>(null);
+  const active = useRef(true);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; request.current?.abort(); };
+  }, []);
   const [documents, setDocuments] = useState<ExtractedDoc[]>([]);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<"reading" | "analysing" | null>(null);
@@ -56,9 +62,9 @@ function AnalysisWorkspace({ c }: { c: Case }) {
       const count = next.reduce((n,d) => n + d.chunks.reduce((m,t) => m + t.text.length, 0), 0);
       if (count > UPLOAD_LIMITS.maxTotalChars) throw new Error("Documents exceed 120,000 characters. Choose fewer or shorter files.");
       if (next.some(d => !d.chunks.length)) throw new Error("A selected file contains no readable text.");
-      setDocuments(next);
-    } catch (err) { setError(err instanceof Error ? err.message : "Couldn't read this file."); }
-    finally { setBusy(null); }
+      if (active.current) setDocuments(next);
+    } catch (err) { if (active.current) setError(err instanceof Error ? err.message : "Couldn't read this file."); }
+    finally { if (active.current) setBusy(null); }
   }
   async function run() {
     if (!consent || busy) return;
@@ -66,12 +72,15 @@ function AnalysisWorkspace({ c }: { c: Case }) {
     const parsed = analysisInputSchema.safeParse({ consent, answers: c, documents });
     if (!parsed.success) { setError(parsed.error.issues.map(i => i.message).join(" ")); return; }
     setError(""); setBusy("analysing");
+    const controller = new AbortController();
+    request.current = controller;
     try {
-      const result = await analyse({ data: parsed.data });
+      const result = await analyse({ data: parsed.data, signal: controller.signal });
+      if (!active.current) return;
       if (result.ok) update({ analysis: result.analysis });
       else setError(result.message);
-    } catch { setError("The request couldn't finish. It may already have been processed; no results were saved. Try again only when ready."); }
-    finally { setBusy(null); setDocuments([]); setConsent(false); }
+    } catch { if (active.current) setError("The request couldn't finish. It may already have been processed; no results were saved. Try again only when ready."); }
+    finally { request.current = null; if (active.current) { setBusy(null); setDocuments([]); setConsent(false); } }
   }
   return <div className="space-y-8">
     <section className="space-y-4">
