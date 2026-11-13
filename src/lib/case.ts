@@ -92,13 +92,6 @@ export function validateIntake(a: IntakeAnswers): string[] {
   return errors;
 }
 
-function addDays(iso: string, days: number) {
-  if (!iso) return "";
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 export function buildLetter(c: Pick<Case, "tenantName" | "landlordName" | "address" | "depositAmount" | "disputedAmount" | "deductionReason" | "tenantView" | "tenancyEnd" | "scheme">) {
   const scheme = c.scheme === "unknown" || c.scheme === "not-protected" ? "the relevant deposit protection scheme" : SCHEME_LABELS[c.scheme];
   return `Subject: Deposit deduction – ${c.address || "my former tenancy"}
@@ -143,7 +136,6 @@ export function buildCase(a: IntakeAnswers): Case {
   ];
   const timeline: TimelineItem[] = [
     a.tenancyStart && { date: a.tenancyStart, label: "Tenancy started" },
-    a.tenancyStart && { date: addDays(a.tenancyStart, 30), label: "Deadline for landlord to protect deposit (30 days)" },
     a.tenancyEnd && { date: a.tenancyEnd, label: "Tenancy ended" },
   ].filter(Boolean) as TimelineItem[];
   const base = { ...a };
@@ -218,7 +210,7 @@ export const SAMPLE_CASE: Case = {
     "Ask the agent for the carpet invoice and its age (draft email ready).",
     "Ask for the undisputed £600 to be returned now.",
     "Gather your move-out photos into one folder with dates.",
-    "If no agreement, raise a free dispute with the DPS — it must be within 3 months of the tenancy ending.",
+    "If no agreement, check the DPS dispute service's current eligibility rules and deadline directly.",
   ],
   letter: "",
 };

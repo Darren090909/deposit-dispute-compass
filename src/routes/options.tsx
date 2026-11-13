@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader, SampleNotice } from "@/components/case-ui";
 import { useCase } from "@/lib/case-store";
 import { gbp } from "@/lib/case";
+import { SourceSafeguards } from "@/components/source-safeguards";
 
 export const Route = createFileRoute("/options")({
   head: () => ({
@@ -33,7 +34,7 @@ const OPTIONS = [
   },
   {
     n: 2, title: "Use your scheme's free dispute service",
-    text: "Each government-approved scheme offers free alternative dispute resolution (ADR). An independent adjudicator reviews written evidence from both sides. Schemes usually expect you to raise a dispute within 3 months of the tenancy ending — check your scheme's rules.",
+    text: "Check your deposit scheme's dispute service, eligibility requirements and current deadlines directly. Do not assume that every scheme or protection arrangement has the same time limit.",
     links: SCHEMES.map((s) => ({ label: s.name, url: s.url })),
   },
   {
@@ -46,7 +47,7 @@ const OPTIONS = [
   },
   {
     n: 4, title: "Court (usually a last resort)",
-    text: "If your deposit wasn't protected, or ADR isn't available, the small claims court may be an option. There are fees, so get advice first.",
+    text: "Ask an independent adviser whether a court claim is appropriate and which process applies. Fees and requirements depend on the claim; do not rely on this app to select a legal route.",
     links: [{ label: "GOV.UK: Make a court claim for money", url: "https://www.gov.uk/make-court-claim-for-money" }],
   },
 ];
@@ -56,8 +57,9 @@ function Options() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-6">
       <PageHeader eyebrow="Resolution options" title="How deposit disputes usually work in England"
-        intro="General information for assured shorthold tenancies. Your own circumstances may differ." />
+        intro="General information for private renters in England. Your tenancy type and circumstances matter." />
       {current?.isSample && <SampleNotice />}
+      <div className="mb-6"><SourceSafeguards /></div>
 
       {current && (
         <div className="card-soft mb-6 border-accent bg-teal-soft p-5">

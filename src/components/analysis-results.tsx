@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FACT_KIND_LABELS, type AnalysisOutput } from "@/lib/analysis-schema";
 import { analysisText, canUseOutput } from "@/lib/analysis-utils";
-import { getSource } from "@/lib/legal-sources";
+import { getSource, sourceControlledNotes, sourceReviewDate } from "@/lib/legal-sources";
+import { SourceSafeguards } from "@/components/source-safeguards";
 
 export function AnalysisResults({ value, onChange, onUseLetter }: {
   value: AnalysisOutput; onChange: (v: AnalysisOutput) => void; onUseLetter: () => void;
@@ -20,6 +21,7 @@ export function AnalysisResults({ value, onChange, onUseLetter }: {
     </label>
   );
   return <div className="space-y-8">
+    <SourceSafeguards />
     <div className="border-l-4 border-accent bg-teal-soft p-4 text-sm">
       <strong>AI-assisted analysis — not a legal decision.</strong> Check every statement against your documents. An allegation is not proof; an interpretation may be wrong.
     </div>
@@ -55,8 +57,10 @@ export function AnalysisResults({ value, onChange, onUseLetter }: {
         {field(`Why it matters ${i + 1}`, q.why, why => change({ unresolvedQuestions: value.unresolvedQuestions.map((v,j) => j === i ? { ...v, why } : v) }))}
       </div>)}</div></section>
     <section><h2 className="mb-3 text-2xl font-semibold">General procedure</h2>
-      <div className="space-y-4">{value.procedureNotes.map((p,i) => { const s = getSource(p.sourceId); return <div key={i}>
-        {field(`Procedure note ${i + 1}`, p.explanation, explanation => change({ procedureNotes: value.procedureNotes.map((v,j) => j === i ? { ...v, explanation } : v) }))}
+      {!sourceControlledNotes(value.procedureNotes).length && <p className="text-sm text-muted-foreground">No reviewed procedural explanation available. Consult the guidance source register above.</p>}
+      <div className="space-y-4">{sourceControlledNotes(value.procedureNotes).map((p,i) => { const s = getSource(p.sourceId); return <div key={i}>
+        <p className="text-sm">{p.explanation}</p>
+        <p className="mt-1 text-xs text-muted-foreground">Maintained guidance · page checked {sourceReviewDate(p.sourceId)} · not AI-generated</p>
         {s && <a href={s.url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm text-accent underline">{s.title}</a>}
       </div>; })}</div></section>
     <section><h2 className="mb-3 text-2xl font-semibold">Draft response</h2>

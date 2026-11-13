@@ -1,6 +1,6 @@
 import type { AnalysisOutput, ExtractedDoc } from "./analysis-schema";
 import { FACT_KIND_LABELS } from "./analysis-schema";
-import { getSource } from "./legal-sources";
+import { getSource, sourceControlledNotes } from "./legal-sources";
 
 export function validateAnalysisSources(output: AnalysisOutput, documents: ExtractedDoc[]): boolean {
   const refs = new Set(documents.flatMap(d => d.chunks.map(c => `${d.filename}, ${c.location}`)));
@@ -22,6 +22,6 @@ export function analysisText(a: AnalysisOutput): string {
     "\nCONFLICTS", ...a.conflicts.map(c => `${c.description} (${c.sourceRefs ?? "Sources unclear"})`),
     "\nMISSING INFORMATION", ...a.missingInformation,
     "\nUNRESOLVED QUESTIONS", ...a.unresolvedQuestions.map(q => `${q.question}\n${q.why}`),
-    "\nGENERAL PROCEDURE", ...a.procedureNotes.map(p => { const s = getSource(p.sourceId); return `${p.explanation}\n${s?.title}: ${s?.url}`; }),
+    "\nGENERAL PROCEDURE — maintained guidance, not AI-written legal advice", ...sourceControlledNotes(a.procedureNotes).map(p => { const s = getSource(p.sourceId); return `${p.explanation}\n${s?.title}: ${s?.url}`; }),
     "\nDRAFT EMAIL", a.draftResponse].join("\n");
 }

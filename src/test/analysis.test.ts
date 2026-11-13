@@ -3,11 +3,25 @@ import { analysisInputSchema, analysisOutputSchema, analysisResponseSchema, UPLO
 import { SAMPLE_CASE } from "@/lib/case";
 import { checkFile, chunkText } from "@/lib/extract";
 import { canUseOutput, validateAnalysisSources } from "@/lib/analysis-utils";
+import { analysisText } from "@/lib/analysis-utils";
+import { sourceControlledNotes, sourceReviewDate } from "@/lib/legal-sources";
 
 const input = { consent: true, answers: SAMPLE_CASE, documents: [] };
 const output: AnalysisOutput = { summary: "Neutral", events: [], evidence: [{ statement: "Worn carpet", kind: "documented", sourceRef: "inventory.txt, lines 1–3", supports: "tenant" }], conflicts: [], missingInformation: [], unresolvedQuestions: [], procedureNotes: [], draftResponse: "Dear agent" };
 
 describe("analysis safeguards", () => {
+  it("replaces invented legal explanations with maintained source guidance", () => {
+    const notes: AnalysisOutput["procedureNotes"] = [{ sourceId: "govuk-deposit-protection", explanation: "You are guaranteed to win £9000." }];
+    const controlled = sourceControlledNotes(notes);
+    expect(controlled).toHaveLength(1);
+    expect(controlled[0]?.explanation).toContain("assured periodic tenancies");
+    expect(analysisText({ ...output, procedureNotes: notes })).not.toContain("guaranteed to win");
+  });
+  it("withholds explanations from unknown or undated sources", () => {
+    expect(sourceControlledNotes([{ sourceId: "invented-law" }, { sourceId: "dps" }])).toEqual([]);
+    expect(sourceReviewDate("dps")).toBeNull();
+    expect(sourceReviewDate("govuk-deposit-protection")).toBe("2026-11-13");
+  });
   it("requires explicit consent", () => {
     expect(analysisInputSchema.safeParse({ ...input, consent: false }).success).toBe(false);
   });

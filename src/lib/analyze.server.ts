@@ -1,7 +1,7 @@
 import { GatewayError, streamResponse } from "@lovable.dev/ai-gateway";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { analysisOutputSchema, analysisResponseSchema, type AnalysisInput, type AnalysisResult } from "./analysis-schema";
-import { LEGAL_SOURCES } from "./legal-sources";
+import { LEGAL_SOURCES, sourceControlledNotes } from "./legal-sources";
 import { validateAnalysisSources } from "./analysis-utils";
 
 const MODEL = "openai/gpt-6-astra";
@@ -20,7 +20,7 @@ Rules:
   ai_interpretation = your own inference or reading of the material (sourceRef null or the material it is based on).
 - If documents conflict, or something important is missing or unclear, record it in "conflicts", "missingInformation" or "unresolvedQuestions". Ask follow-up questions instead of guessing.
 - Events: chronological, ISO date (YYYY-MM-DD) when known, otherwise null.
-- procedureNotes: explain the general deposit dispute process ONLY using the verified sources below, referenced by sourceId. Do not cite any statute, case or other source. Do not tell the tenant who will win or what their legal rights are.
+- procedureNotes: return an empty array. The application supplies maintained procedural guidance separately; do not generate legal explanations anywhere in the output. Do not tell the tenant who will win or what their legal rights are.
 - summary: neutral, plain English, 3-5 sentences.
 - draftResponse: a polite, factual email from the tenant to the landlord/agent. Include only facts listed above; put [square brackets] where the tenant must fill in or check something.
 
@@ -71,6 +71,7 @@ export async function runAnalysis(input: AnalysisInput, signal?: AbortSignal): P
     if (!validateAnalysisSources(analysis, input.documents))
       return { ok: false, status: 502, message: "The AI response included an unrecognised document reference. No analysis was saved." };
     analysis.events.sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
+    analysis.procedureNotes = sourceControlledNotes([{ sourceId: "govuk-deposit-protection" }]);
     return { ok: true, analysis };
   } catch (err) {
     // Never log prompts, documents, raw provider responses or exception messages.

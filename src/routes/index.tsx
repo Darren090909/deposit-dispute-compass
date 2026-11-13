@@ -80,9 +80,8 @@ function Index() {
         <div>
           <h2 className="text-2xl font-semibold md:text-3xl">Plain language, honest limits</h2>
           <p className="mt-4 text-muted-foreground">
-            In England, most deposits for assured shorthold tenancies must be protected in a government-approved scheme, and
-            each scheme offers free dispute resolution. RentResolve explains these steps in everyday words and links to the
-            official sources.
+            Deposit protection rules depend on your tenancy and circumstances. RentResolve links to government guidance
+            and deposit schemes so you can check the process directly with the source.
           </p>
           <p className="mt-4 text-muted-foreground">
             Everything we organise for you is a starting point you can edit. We don't decide who is right.

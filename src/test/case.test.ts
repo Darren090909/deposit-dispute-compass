@@ -14,7 +14,7 @@ describe("case rules", () => {
   it("rejects a disputed amount larger than the deposit", () => {
     expect(validateIntake({ ...base, disputedAmount: 2000 })).toContain("The disputed amount can't be more than the deposit.");
   });
-  it("adds the 30-day protection deadline to the timeline", () => {
-    expect(buildCase(base).timeline.find((t) => t.label.includes("30 days"))?.date).toBe("2025-10-01");
+  it("does not infer a legal deadline from a tenancy start date without a deposit receipt date", () => {
+    expect(buildCase(base).timeline.map(t => t.date)).toEqual(["2025-09-01", "2026-06-30"]);
   });
 });
