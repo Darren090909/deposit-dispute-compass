@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, SampleNotice } from "@/components/case-ui";
+import { PageHeader } from "@/components/case-ui";
 import { useCase } from "@/lib/case-store";
 import { gbp } from "@/lib/case";
 import { SourceSafeguards } from "@/components/source-safeguards";
@@ -58,7 +58,6 @@ function Options() {
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-6">
       <PageHeader eyebrow="Resolution options" title="How deposit disputes usually work in England"
         intro="General information for private renters in England. Your tenancy type and circumstances matter." />
-      {current?.isSample && <SampleNotice />}
       <div className="mb-6"><SourceSafeguards /></div>
 
       {current && (

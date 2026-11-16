@@ -13,3 +13,4 @@
 - AI inference uses the Gateway SDK inside a TanStack server function, with browser extraction and a maintained source allowlist; this keeps credentials server-side and citations constrained.
 - Abort pending analysis when its page unmounts and ignore late results; this prevents an abandoned request from saving into a different case.
 - Procedural explanations are substituted from dated maintained sources on the server, in saved-result displays and exports; model-written text and unreviewed sources must never inherit a publisher's authority.
+- The opening chat uses AI Elements and a streaming server function, with one browser-saved UIMessage conversation; complete history is sent on each request and maintained legal guidance stays separate from model replies.

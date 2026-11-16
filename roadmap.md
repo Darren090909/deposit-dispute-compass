@@ -7,3 +7,8 @@
 - [x] Replace AI-written procedure with maintained source text, including saved results and exports.
 - [x] Show source review dates and accuracy limits; remove unsupported deadline guidance.
 - [x] Test source substitution and verify the review/export flow.
+
+# Chat-first opening page
+- [x] Remove sample-case entry points and previously saved sample cases.
+- [x] Add one ongoing, browser-saved AI chat with consent and maintained guidance.
+- [x] Verify real chat, restoration and mobile layout.

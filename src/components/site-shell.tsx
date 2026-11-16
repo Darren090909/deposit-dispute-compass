@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Scale } from "lucide-react";
 
 const NAV = [
+  { to: "/", label: "Chat" },
   { to: "/intake", label: "Start" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/evidence", label: "Evidence" },
@@ -46,7 +47,7 @@ export function SiteFooter() {
           <a className="underline" href="https://england.shelter.org.uk/" target="_blank" rel="noreferrer">Shelter</a> or your
           students' union advice centre.
         </p>
-        <p className="mt-4">A three-day student prototype. Sample data is fictional. Your case is saved only in this browser.</p>
+        <p className="mt-4">A student prototype. Your case and chat history are saved only in this browser.</p>
       </div>
     </footer>
   );

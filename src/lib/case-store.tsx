@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { SAMPLE_CASE, type Case } from "./case";
+import type { Case } from "./case";
 
 const KEY = "rentresolve-case-v1";
 
@@ -8,10 +8,14 @@ interface Store {
   ready: boolean;
   setCase: (c: Case | null) => void;
   update: (patch: Partial<Case>) => void;
-  loadSample: () => void;
 }
 
 const Ctx = createContext<Store | null>(null);
+
+export function restoreCase(raw: string): Case | null {
+  const saved: Case = JSON.parse(raw);
+  return saved?.isSample ? null : saved;
+}
 
 export function CaseProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<Case | null>(null);
@@ -20,7 +24,11 @@ export function CaseProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setCurrent(JSON.parse(raw));
+      if (raw) {
+        const saved = restoreCase(raw);
+        setCurrent(saved);
+        if (!saved) localStorage.removeItem(KEY);
+      }
     } catch {
       /* ignore corrupt storage */
     }
@@ -44,7 +52,6 @@ export function CaseProvider({ children }: { children: ReactNode }) {
         ready,
         setCase,
         update: (patch) => current && setCase({ ...current, ...patch }),
-        loadSample: () => setCase(structuredClone(SAMPLE_CASE)),
       }}
     >
       {children}
