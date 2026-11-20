@@ -7,7 +7,7 @@ const ext = (name: string) => name.slice(name.lastIndexOf(".")).toLowerCase();
 /** Returns an error message if the file is not allowed, else null. */
 export function checkFile(file: File): string | null {
   if (!UPLOAD_LIMITS.acceptedExtensions.includes(ext(file.name)))
-    return `${file.name}: only PDF, .txt and .md files are supported.`;
+    return `${file.name}: use PDF, TXT, MD, DOCX, EML, JPG, PNG or WebP.`;
   if (file.size > UPLOAD_LIMITS.maxFileBytes) return `${file.name}: files must be 5 MB or smaller.`;
   if (file.size === 0) return `${file.name}: this file is empty.`;
   return null;
@@ -28,6 +28,23 @@ export function chunkText(text: string, linesPer = 40): ExtractedDoc["chunks"] {
 export async function extractFile(file: File): Promise<ExtractedDoc> {
   const error = checkFile(file);
   if (error) throw new ExtractError(error);
+  if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext(file.name)))
+    throw new ExtractError("Photographs need your consent for AI image reading.");
+  if (ext(file.name) === ".docx") {
+    const mammoth = await import("mammoth/mammoth.browser");
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    if (result.value.length > UPLOAD_LIMITS.maxTotalChars) throw new ExtractError("This Word document exceeds the text limit.");
+    const chunks = chunkText(result.value);
+    if (!chunks.length) throw new ExtractError("No readable text found in this Word document.");
+    return { filename: file.name, chunks };
+  }
+  if (ext(file.name) === ".eml") {
+    const { default: PostalMime } = await import("postal-mime");
+    const mail = await new PostalMime().parse(await file.arrayBuffer());
+    const text = [`From: ${mail.from?.name || ""} ${mail.from?.address || ""}`, `To: ${mail.to?.map(p => p.address).join(", ") || ""}`, `Date: ${mail.date || ""}`, `Subject: ${mail.subject || ""}`, mail.text || ""].join("\n");
+    if (text.length > UPLOAD_LIMITS.maxTotalChars) throw new ExtractError("This email exceeds the text limit.");
+    return { filename: file.name, chunks: chunkText(text) };
+  }
   if (ext(file.name) !== ".pdf") {
     const text = await file.text();
     if (text.length > UPLOAD_LIMITS.maxTotalChars) throw new ExtractError(`${file.name}: text exceeds 120,000 characters.`);

@@ -12,3 +12,11 @@
 - [x] Remove sample-case entry points and previously saved sample cases.
 - [x] Add one ongoing, browser-saved AI chat with consent and maintained guidance.
 - [x] Verify real chat, restoration and mobile layout.
+
+# Next development stage
+- [ ] Add dispute selection and structured conditional intake without changing the design.
+- [ ] Add genuine document/email/photo extraction with editable source previews.
+- [ ] Separate identified facts, suggested issues, evidence and gaps in AI analysis.
+- [ ] Connect confirmed facts and editable sourced timelines to the dashboard.
+- [ ] Verify all three issue workflows, extraction, review gates and mobile layout.
+- [ ] Keep original evidence and corrected extracted text on this device until removed or the case is closed.

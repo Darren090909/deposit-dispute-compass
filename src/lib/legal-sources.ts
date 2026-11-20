@@ -5,6 +5,13 @@
  */
 export const LEGAL_SOURCES = [
   {
+    id: "govuk-repairs",
+    title: "GOV.UK — Private renting: repairs",
+    url: "https://www.gov.uk/private-renting/repairs",
+    lastReviewed: "2026-11-20",
+    covers: "GOV.UK advises contacting your landlord if your property needs repairs or has mould, straight away for faults that could damage health. If repairs are not done, contact the environmental health department at your local council. If you think your home is unsafe, contact your council’s housing department. Responsibilities depend on the issue and your tenancy; check the full guidance and seek advice on your circumstances.",
+  },
+  {
     id: "govuk-deposit-protection",
     title: "GOV.UK — Tenancy deposit protection",
     url: "https://www.gov.uk/tenancy-deposit-protection",

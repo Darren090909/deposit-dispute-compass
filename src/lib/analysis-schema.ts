@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { LEGAL_SOURCE_IDS } from "./legal-sources";
+import { ISSUE_TYPES } from "./issues";
 
 /** Upload limits — shared by the browser (pre-check) and the server (re-check). */
 export const UPLOAD_LIMITS = {
   maxFiles: 5,
   maxFileBytes: 5 * 1024 * 1024,
   maxTotalChars: 120_000,
-  acceptedExtensions: [".pdf", ".txt", ".md"],
-  acceptAttr: ".pdf,.txt,.md,application/pdf,text/plain,text/markdown",
+  acceptedExtensions: [".pdf", ".txt", ".md", ".docx", ".eml", ".jpg", ".jpeg", ".png", ".webp"],
+  acceptAttr: ".pdf,.txt,.md,.docx,.eml,.jpg,.jpeg,.png,.webp",
 };
 
 export const FACT_KINDS = ["documented", "user_reported", "allegation", "ai_interpretation"] as const;
@@ -33,13 +34,20 @@ export type ExtractedDoc = z.infer<typeof extractedDocSchema>;
 export const analysisInputSchema = z.object({
   consent: z.literal(true),
   answers: z.object({
+    issueType: z.enum(ISSUE_TYPES).default("deposit"),
+    repair: z.object({
+      problem: z.string().max(5000), appeared: z.string().max(20),
+      notified: z.enum(["yes", "no", "unsure"]), notifiedDate: z.string().max(20),
+      response: z.string().max(5000), attempted: z.enum(["yes", "no", "unsure"]),
+      repairDetails: z.string().max(5000), worsening: z.enum(["yes", "no", "unsure"]), safety: z.string().max(5000),
+    }).optional(),
     tenantName: z.string().max(200),
     landlordName: z.string().max(200),
     address: z.string().max(300),
     tenancyStart: z.string().max(20),
     tenancyEnd: z.string().max(20),
-    depositAmount: z.number().finite().positive(),
-    disputedAmount: z.number().finite().positive(),
+    depositAmount: z.number().finite().nonnegative(),
+    disputedAmount: z.number().finite().nonnegative(),
     scheme: z.string().max(40),
     deductionReason: z.string().max(2000),
     tenantView: z.string().max(5000),
@@ -48,7 +56,11 @@ export const analysisInputSchema = z.object({
 }).superRefine((input, ctx) => {
   if (new Set(input.documents.map(d => d.filename)).size !== input.documents.length)
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Each document needs a unique filename." });
-  if (input.answers.disputedAmount > input.answers.depositAmount)
+  if (input.answers.issueType === "deposit" && (input.answers.depositAmount <= 0 || input.answers.disputedAmount <= 0))
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Deposit and disputed amounts must be more than £0." });
+  if (input.answers.issueType !== "deposit" && !input.answers.repair?.problem.trim())
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Describe the problem at the property." });
+  if (input.answers.issueType === "deposit" && input.answers.disputedAmount > input.answers.depositAmount)
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "The disputed amount can't be more than the deposit." });
   const total = input.documents.reduce((n, d) => n + d.chunks.reduce((m, c) => m + c.text.length, 0), 0);
   if (total > UPLOAD_LIMITS.maxTotalChars)

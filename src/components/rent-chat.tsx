@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import type { ChatStatus, UIMessage } from "ai";
-import { ArrowUp, Copy, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowUp, Copy, MessageCircle, Trash2, Coins, Droplets, Wrench } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ISSUE_TYPES, ISSUE_LABELS, type IssueType } from "@/lib/issues";
 import {
   Conversation,
   ConversationContent,
@@ -25,9 +27,10 @@ import door from "@/assets/door.jpg";
 const KEY = "rentresolve-chat-v1";
 const messageText = (message: UIMessage) =>
   message.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
-const guidance = sourceControlledNotes([{ sourceId: "govuk-deposit-protection" }]);
 
 export function RentChat() {
+  const [issue, setIssue] = useState<IssueType | null>(null);
+  const guidance = sourceControlledNotes([{ sourceId: issue === "deposit" ? "govuk-deposit-protection" : "govuk-repairs" }]);
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [ready, setReady] = useState(false);
   const [draft, setDraft] = useState("");
@@ -43,6 +46,8 @@ export function RentChat() {
 
   useEffect(() => {
     try {
+      const savedIssue = localStorage.getItem("rentresolve-chat-issue");
+      if (ISSUE_TYPES.includes(savedIssue as IssueType)) setIssue(savedIssue as IssueType);
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const stored: UIMessage[] = JSON.parse(raw);
@@ -76,7 +81,7 @@ export function RentChat() {
   };
 
   const submit = async ({ text }: { text: string }) => {
-    if (!text.trim() || !consent || busy || !ready) return;
+    if (!text.trim() || !consent || busy || !ready || !issue) return;
     const controller = new AbortController();
     pending.current = controller;
     const user: UIMessage = {
@@ -99,6 +104,7 @@ export function RentChat() {
       const response = await callChat({
         data: {
           consent: true,
+          issueType: issue,
           messages: history.map((message) => ({
             role: message.role === "assistant" ? "assistant" : "user",
             content: messageText(message),
@@ -200,7 +206,7 @@ export function RentChat() {
             <MessageCircle className="h-6 w-6" />
           </Button>
           <h2 className="mt-4 text-3xl font-semibold">Get started</h2>
-          <p className="mt-2 text-muted-foreground">What’s happening with your deposit?</p>
+          <p className="mt-2 text-muted-foreground">Which tenancy issue would you like to discuss?</p>
         </div>
       ) : (
         <Conversation className="h-[min(52dvh,640px)] min-h-64" initial="instant" resize="instant">
@@ -275,6 +281,15 @@ export function RentChat() {
         </Conversation>
       )}
 
+      <div className="my-4 flex flex-wrap justify-center gap-2" role="group" aria-label="Tenancy issue">
+        {ISSUE_TYPES.map(type => { const Icon = type === "deposit" ? Coins : type === "damp" ? Droplets : Wrench; return <Button key={type} variant={issue === type ? "default" : "outline"} aria-pressed={issue === type} disabled={busy} onClick={() => {
+          if (issue !== type && messages.length && !confirm("Changing issue clears the current chat. Continue?")) return;
+          if (issue !== type) { setMessages([]); save([]); setReviewed([]); setDraft(""); setError(""); setConsent(false); }
+          setIssue(type); localStorage.setItem("rentresolve-chat-issue", type); textarea.current?.focus();
+        }}><Icon className="h-4 w-4" />{ISSUE_LABELS[type]}</Button>; })}
+      </div>
+      {issue && <div className="mb-4 text-center"><Button asChild variant="secondary"><Link to="/intake" search={{ issue }}>Start guided intake</Link></Button></div>}
+
       <PromptInput
         onSubmit={submit}
         className="mt-4 [&_[data-slot=input-group]]:bg-card [&_[data-slot=input-group]]:shadow-card"
@@ -284,14 +299,15 @@ export function RentChat() {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           aria-label="Message RentResolve"
-          placeholder="Tell me about your deposit dispute…"
+          placeholder={issue ? `Tell me about ${ISSUE_LABELS[issue].toLowerCase()}…` : "Choose a tenancy issue above…"}
+          disabled={!issue}
           className="min-h-24 px-4 text-base"
         />
         <PromptInputFooter className="justify-end px-3 pb-3">
           <PromptInputSubmit
             status={status}
             className="h-9 w-9 shrink-0"
-            disabled={!busy && (!draft.trim() || !consent || !ready)}
+            disabled={!busy && (!draft.trim() || !consent || !ready || !issue)}
             onStop={() => {
               pending.current?.abort();
               pending.current = null;
@@ -340,7 +356,7 @@ export function RentChat() {
                 rel="noreferrer"
                 className="mt-2 inline-block underline"
               >
-                {source.title} · reviewed 13 November 2026
+                {source.title} · reviewed {"lastReviewed" in source ? source.lastReviewed : "date unavailable"}
               </a>
             ))}
           </div>

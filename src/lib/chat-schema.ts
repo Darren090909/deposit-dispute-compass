@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { ISSUE_TYPES } from "./issues";
 
 export const chatInputSchema = z.object({
   consent: z.literal(true),
+  issueType: z.enum(ISSUE_TYPES).default("deposit"),
   messages: z
     .array(
       z.object({

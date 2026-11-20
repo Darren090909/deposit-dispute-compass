@@ -1,4 +1,5 @@
 import type { AnalysisOutput } from "./analysis-schema";
+import { ISSUE_LABELS, issueOf, type IssueType, type RepairAnswers } from "./issues";
 
 export type DocStatus = "have" | "missing" | "unsure";
 export type Scheme = "DPS" | "mydeposits" | "TDS" | "unknown" | "not-protected";
@@ -12,6 +13,9 @@ export interface CaseDoc {
 export interface TimelineItem {
   date: string;
   label: string;
+  id?: string;
+  source?: string;
+  origin?: "intake" | "analysis" | "manual";
 }
 export interface Fact {
   text: string;
@@ -19,6 +23,9 @@ export interface Fact {
 }
 
 export interface Case {
+  caseId?: string;
+  issueType?: IssueType;
+  repair?: RepairAnswers;
   isSample: boolean;
   tenantName: string;
   landlordName: string;
@@ -66,6 +73,8 @@ export const fmtDate = (iso: string) =>
   iso ? new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 export interface IntakeAnswers {
+  issueType?: IssueType;
+  repair?: RepairAnswers;
   tenantName: string;
   landlordName: string;
   address: string;
@@ -83,16 +92,37 @@ export interface IntakeAnswers {
 export function validateIntake(a: IntakeAnswers): string[] {
   const errors: string[] = [];
   if (!a.tenantName.trim()) errors.push("Please add your name.");
-  if (!(a.depositAmount > 0)) errors.push("Deposit amount must be more than £0.");
-  if (!(a.disputedAmount > 0)) errors.push("Disputed amount must be more than £0.");
-  if (a.disputedAmount > a.depositAmount) errors.push("The disputed amount can't be more than the deposit.");
+  if (issueOf(a) === "deposit") {
+    if (!(a.depositAmount > 0)) errors.push("Deposit amount must be more than £0.");
+    if (!(a.disputedAmount > 0)) errors.push("Disputed amount must be more than £0.");
+    if (a.disputedAmount > a.depositAmount) errors.push("The disputed amount can't be more than the deposit.");
+    if (!a.deductionReason.trim()) errors.push("Tell us what the deduction is for.");
+  } else {
+    if (!a.repair?.problem.trim()) errors.push("Describe the problem at the property.");
+    if (a.repair?.appeared && a.repair.notifiedDate && a.repair.notifiedDate < a.repair.appeared)
+      errors.push("The notification date cannot be before the problem first appeared.");
+  }
   if (a.tenancyStart && a.tenancyEnd && a.tenancyEnd < a.tenancyStart)
     errors.push("The tenancy end date must be after the start date.");
-  if (!a.deductionReason.trim()) errors.push("Tell us what the deduction is for.");
   return errors;
 }
 
-export function buildLetter(c: Pick<Case, "tenantName" | "landlordName" | "address" | "depositAmount" | "disputedAmount" | "deductionReason" | "tenantView" | "tenancyEnd" | "scheme">) {
+export function buildLetter(c: Pick<Case, "tenantName" | "landlordName" | "address" | "depositAmount" | "disputedAmount" | "deductionReason" | "tenantView" | "tenancyEnd" | "scheme" | "issueType" | "repair">) {
+  if (issueOf(c) !== "deposit") return `Subject: ${ISSUE_LABELS[issueOf(c)]} – ${c.address || "my tenancy"}
+
+Dear ${c.landlordName || "[Landlord or agent]"},
+
+I am writing about the following problem at ${c.address || "[property address]"}: ${c.repair?.problem || "[describe the problem]"}.
+
+I first noticed it on ${c.repair?.appeared ? fmtDate(c.repair.appeared) : "[date]"}.${c.repair?.notified === "yes" ? ` I notified you ${c.repair.notifiedDate ? `on ${fmtDate(c.repair.notifiedDate)}` : "on [date]"}.` : ""}
+${c.repair?.response ? `Your response: ${c.repair.response}.` : ""}
+${c.repair?.attempted === "yes" ? `Repairs attempted: ${c.repair.repairDetails || "[details]"}.` : ""}
+${c.repair?.safety ? `My health or safety concerns: ${c.repair.safety}.` : ""}
+
+Please confirm what action you propose and when the property can be inspected. I would appreciate a written response and a proposed schedule.
+
+Kind regards,
+${c.tenantName || "[Your name]"}`;
   const scheme = c.scheme === "unknown" || c.scheme === "not-protected" ? "the relevant deposit protection scheme" : SCHEME_LABELS[c.scheme];
   return `Subject: Deposit deduction – ${c.address || "my former tenancy"}
 
@@ -139,7 +169,17 @@ export function buildCase(a: IntakeAnswers): Case {
     a.tenancyEnd && { date: a.tenancyEnd, label: "Tenancy ended" },
   ].filter(Boolean) as TimelineItem[];
   const base = { ...a };
+  const repairCase = issueOf(a) !== "deposit";
+  if (repairCase) {
+    facts.splice(0, facts.length, { text: a.repair?.problem || "", source: "Your answers" });
+    nextSteps.splice(0, nextSteps.length, "Check your case information and dates.", "Gather dated photographs and copies of correspondence.", "Review the official repairs guidance and consider independent advice.");
+    if (a.repair?.appeared) timeline.push({ date: a.repair.appeared, label: "Problem first noticed", source: "Your answers", origin: "intake" });
+    if (a.repair?.notified === "yes" && a.repair.notifiedDate) timeline.push({ date: a.repair.notifiedDate, label: "Landlord notified", source: "Your answers", origin: "intake" });
+  }
   return {
+    caseId: crypto.randomUUID(),
+    issueType: issueOf(a),
+    repair: a.repair,
     isSample: false,
     tenantName: base.tenantName,
     landlordName: base.landlordName,
@@ -151,9 +191,9 @@ export function buildCase(a: IntakeAnswers): Case {
     scheme: base.scheme,
     deductionReason: base.deductionReason,
     tenantView: base.tenantView,
-    summary: `${a.tenantName} is disputing a ${gbp(a.disputedAmount)} deduction from a ${gbp(a.depositAmount)} deposit${a.address ? ` at ${a.address}` : ""}. The landlord's reason: ${a.deductionReason}.`,
+    summary: repairCase ? `${a.tenantName} reports ${ISSUE_LABELS[issueOf(a)].toLowerCase()}${a.address ? ` at ${a.address}` : ""}: ${a.repair?.problem || ""}. ${a.repair?.response ? `Reported landlord response: ${a.repair.response}` : "No landlord response has been recorded."}` : `${a.tenantName} is disputing a ${gbp(a.disputedAmount)} deduction from a ${gbp(a.depositAmount)} deposit${a.address ? ` at ${a.address}` : ""}. The landlord's reason: ${a.deductionReason}.`,
     documents,
-    timeline,
+    timeline: timeline.map(t => ({ ...t, id: crypto.randomUUID(), source: t.source ?? "Your answers", origin: "intake" })),
     facts,
     missing,
     nextSteps,
