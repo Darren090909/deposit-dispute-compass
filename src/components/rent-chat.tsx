@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import type { ChatStatus, UIMessage } from "ai";
 import { ArrowUp, Copy, MessageCircle, Trash2, Coins, Droplets, Wrench } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ISSUE_TYPES, ISSUE_LABELS, type IssueType } from "@/lib/issues";
 import {
   Conversation,
@@ -22,13 +22,21 @@ import { EditableText } from "@/components/case-ui";
 import { chatWithRentResolve } from "@/lib/chat.functions";
 import { LEGAL_SOURCES, sourceControlledNotes } from "@/lib/legal-sources";
 import type { ChatEvent } from "@/lib/chat-schema";
+import { depositChat } from "@/lib/deposit-chat.functions";
+import { answerField, caseFromChat, chatCaseSchema, DEPOSIT_WORKFLOW, emptyChatCase, type ChatCase, type DepositField } from "@/lib/chat-case";
+import { DepositChatPanel } from "@/components/deposit-chat-panel";
+import { useCase } from "@/lib/case-store";
 import door from "@/assets/door.jpg";
 
 const KEY = "rentresolve-chat-v1";
+const DEPOSIT_KEY = "rentresolve-deposit-chat-v1";
 const messageText = (message: UIMessage) =>
   message.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
 
 export function RentChat() {
+  const { current: activeCase, setCase } = useCase();
+  const navigate = useNavigate();
+  const [memory, setMemory] = useState<ChatCase>(emptyChatCase);
   const [issue, setIssue] = useState<IssueType | null>(null);
   const guidance = sourceControlledNotes([{ sourceId: issue === "deposit" ? "govuk-deposit-protection" : "govuk-repairs" }]);
   const [messages, setMessages] = useState<UIMessage[]>([]);
@@ -42,6 +50,7 @@ export function RentChat() {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const pending = useRef<AbortController | null>(null);
   const callChat = useServerFn(chatWithRentResolve);
+  const callDepositChat = useServerFn(depositChat);
   const busy = status === "submitted" || status === "streaming";
 
   useEffect(() => {
@@ -62,6 +71,15 @@ export function RentChat() {
         )
           setMessages(stored);
       }
+      const depositRaw = localStorage.getItem(DEPOSIT_KEY);
+      if (depositRaw && savedIssue === "deposit") {
+        const stored = JSON.parse(depositRaw);
+        const parsed = chatCaseSchema.safeParse(stored.memory);
+        if (parsed.success && Array.isArray(stored.messages)) {
+          setMemory(parsed.data);
+          setMessages(stored.messages);
+        }
+      }
     } catch {
       setNotice("Your saved chat could not be opened.");
     }
@@ -72,15 +90,16 @@ export function RentChat() {
     };
   }, []);
 
-  const save = (next: UIMessage[]) => {
+  const save = (next: UIMessage[], nextMemory = memory) => {
     try {
       localStorage.setItem(KEY, JSON.stringify(next));
+      if (issue === "deposit") localStorage.setItem(DEPOSIT_KEY, JSON.stringify({ messages: next, memory: nextMemory }));
     } catch {
       setNotice("This browser could not save your chat.");
     }
   };
 
-  const submit = async ({ text }: { text: string }) => {
+  const submit = async ({ text }: { text: string }, nextMemory = memory) => {
     if (!text.trim() || !consent || busy || !ready || !issue) return;
     const controller = new AbortController();
     pending.current = controller;
@@ -92,7 +111,7 @@ export function RentChat() {
     const history = [...messages, user];
     const replyId = crypto.randomUUID();
     setMessages(history);
-    save(history);
+    save(history, nextMemory);
     setDraft("");
     setError("");
     setNotice("");
@@ -101,6 +120,19 @@ export function RentChat() {
     let reply = "";
     let completed = false;
     try {
+      if (issue === "deposit") {
+        const result = await callDepositChat({ data: {
+          consent: true, issueType: "deposit", memory: nextMemory,
+          messages: history.map(message => ({ role: message.role === "assistant" ? "assistant" : "user", content: messageText(message) })),
+        }, signal: controller.signal });
+        if (controller.signal.aborted) return;
+        if (!result.ok) throw new Error(result.message);
+        setMemory(result.memory);
+        const updated: UIMessage[] = [...history, { id: replyId, role: "assistant", parts: [{ type: "text", text: result.acknowledgement || "Thanks. Your answers are recorded below for you to check." }] }];
+        setMessages(updated);
+        save(updated, result.memory);
+        return;
+      }
       const response = await callChat({
         data: {
           consent: true,
@@ -158,6 +190,24 @@ export function RentChat() {
     }
   };
 
+  const editField = (field: DepositField, value: string, skip = false) => {
+    try {
+      const next = answerField(memory, field, value, skip);
+      setMemory(next);
+      save(messages, next);
+      setError("");
+      return next;
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Please check your answer.");
+      return null;
+    }
+  };
+  const answer = (field: DepositField, value: string, skip = false) => {
+    const next = editField(field, value, skip);
+    if (!next) return;
+    void submit({ text: skip ? `I’m not sure about ${DEPOSIT_WORKFLOW[field].label.toLowerCase()}; skip this for now.` : `${DEPOSIT_WORKFLOW[field].label}: ${value}` }, next);
+  };
+
   return (
     <section className="mx-auto max-w-3xl px-4 py-8 md:px-6 md:py-10">
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -185,6 +235,8 @@ export function RentChat() {
               setReviewed([]);
               setError("");
               localStorage.removeItem(KEY);
+              localStorage.removeItem(DEPOSIT_KEY);
+              setMemory(emptyChatCase());
               textarea.current?.focus();
             }}
           >
@@ -276,6 +328,13 @@ export function RentChat() {
               </Message>
             ))}
             {status === "submitted" && <Shimmer>Thinking…</Shimmer>}
+            {issue === "deposit" && <DepositChatPanel memory={memory} busy={busy} canSend={consent && ready} onAnswer={answer} onEdit={editField} onSave={() => {
+              try {
+                if (activeCase && activeCase.issueType && activeCase.issueType !== "deposit" && !window.confirm("Replace your current case? Its saved evidence will be removed from this device.")) return;
+                setCase(caseFromChat(memory, activeCase));
+                void navigate({ to: "/dashboard" });
+              } catch (failure) { setError(failure instanceof Error ? failure.message : "Please check your summary."); }
+            }} />}
           </ConversationContent>
           <ConversationScrollButton aria-label="Latest message" />
         </Conversation>
@@ -284,7 +343,7 @@ export function RentChat() {
       <div className="my-4 flex flex-wrap justify-center gap-2" role="group" aria-label="Tenancy issue">
         {ISSUE_TYPES.map(type => { const Icon = type === "deposit" ? Coins : type === "damp" ? Droplets : Wrench; return <Button key={type} variant={issue === type ? "default" : "outline"} aria-pressed={issue === type} disabled={busy} onClick={() => {
           if (issue !== type && messages.length && !confirm("Changing issue clears the current chat. Continue?")) return;
-          if (issue !== type) { setMessages([]); save([]); setReviewed([]); setDraft(""); setError(""); setConsent(false); }
+          if (issue !== type) { setMessages([]); save([], emptyChatCase()); setMemory(emptyChatCase()); localStorage.removeItem(DEPOSIT_KEY); setReviewed([]); setDraft(""); setError(""); setConsent(false); }
           setIssue(type); localStorage.setItem("rentresolve-chat-issue", type); textarea.current?.focus();
         }}><Icon className="h-4 w-4" />{ISSUE_LABELS[type]}</Button>; })}
       </div>
@@ -328,7 +387,7 @@ export function RentChat() {
           onChange={(event) => setConsent(event.target.checked)}
           className="mt-1 shrink-0"
         />
-        I agree to send my messages and chat history to the AI service. Chat history is saved on
+        I agree to send my messages, case answers and chat history to the AI service. Chat history is saved on
         this device; avoid sensitive personal details.
       </label>
       {error && (

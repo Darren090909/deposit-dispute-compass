@@ -1,4 +1,5 @@
 import type { AnalysisOutput } from "./analysis-schema";
+import type { ChatCase } from "./chat-case";
 import { ISSUE_LABELS, issueOf, type IssueType, type RepairAnswers } from "./issues";
 
 export type DocStatus = "have" | "missing" | "unsure";
@@ -32,6 +33,8 @@ export interface Case {
   address: string;
   tenancyStart: string;
   tenancyEnd: string;
+  moveOutDate?: string;
+  chatMemory?: ChatCase;
   depositAmount: number;
   disputedAmount: number;
   scheme: Scheme;
@@ -107,7 +110,7 @@ export function validateIntake(a: IntakeAnswers): string[] {
   return errors;
 }
 
-export function buildLetter(c: Pick<Case, "tenantName" | "landlordName" | "address" | "depositAmount" | "disputedAmount" | "deductionReason" | "tenantView" | "tenancyEnd" | "scheme" | "issueType" | "repair">) {
+export function buildLetter(c: Pick<Case, "tenantName" | "landlordName" | "address" | "depositAmount" | "disputedAmount" | "deductionReason" | "tenantView" | "tenancyEnd" | "moveOutDate" | "scheme" | "issueType" | "repair">) {
   if (issueOf(c) !== "deposit") return `Subject: ${ISSUE_LABELS[issueOf(c)]} – ${c.address || "my tenancy"}
 
 Dear ${c.landlordName || "[Landlord or agent]"},
@@ -128,7 +131,7 @@ ${c.tenantName || "[Your name]"}`;
 
 Dear ${c.landlordName || "Landlord"},
 
-I am writing about the proposed deduction of ${gbp(c.disputedAmount)} from my ${gbp(c.depositAmount)} deposit for ${c.address || "the property"}, which I left on ${fmtDate(c.tenancyEnd)}. The reason given was: ${c.deductionReason || "[reason]"}.
+I am writing about the proposed deduction of ${gbp(c.disputedAmount)} from my ${gbp(c.depositAmount)} deposit for ${c.address || "the property"}.${c.moveOutDate ? ` I moved out on ${fmtDate(c.moveOutDate)}.` : c.tenancyEnd ? ` My tenancy ended on ${fmtDate(c.tenancyEnd)}.` : " [Add the relevant tenancy or move-out date.]"} The reason given was: ${c.deductionReason || "[reason]"}.
 
 I do not agree with this deduction. ${c.tenantView || "[Explain briefly why you disagree.]"}
 

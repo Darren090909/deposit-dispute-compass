@@ -20,3 +20,9 @@
 - [ ] Connect confirmed facts and editable sourced timelines to the dashboard.
 - [ ] Verify all three issue workflows, extraction, review gates and mobile layout.
 - [ ] Keep original evidence and corrected extracted text on this device until removed or the case is closed.
+
+# Deposit chat — Phase 1
+- [ ] Add sourced structured memory and deterministic missing/conflicting question selection.
+- [ ] Add editable in-chat choices and dates, with concise real AI acknowledgements.
+- [ ] Review and transfer an accurate summary to the existing dashboard.
+- [ ] Test memory, conflicts, skip/edit behaviour, real deposit chat and mobile layout.
