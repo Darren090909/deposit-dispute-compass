@@ -22,7 +22,10 @@ export const Route = createFileRoute("/intake")({
     ],
   }),
   component: Intake,
-  validateSearch: (search: Record<string, unknown>): { issue?: IssueType } => ({ issue: ISSUE_TYPES.includes(search.issue as IssueType) ? search.issue as IssueType : undefined }),
+  validateSearch: (search: Record<string, unknown>): { issue?: IssueType } => {
+    const issue = search["issue"];
+    return ISSUE_TYPES.includes(issue as IssueType) ? { issue: issue as IssueType } : {};
+  },
 });
 
 const EMPTY: IntakeAnswers = {
@@ -55,7 +58,7 @@ function Intake() {
     const built = buildCase(a);
     if (current && issueOf(current) === issueOf(a)) {
       const changed = JSON.stringify({ ...current, documents: a.documents }) !== JSON.stringify({ ...current, ...a });
-      setCase({ ...built, caseId: current.caseId, analysis: changed ? undefined : current.analysis,
+      setCase({ ...built, ...(current.caseId ? { caseId: current.caseId } : {}), analysis: changed ? undefined : current.analysis,
         timeline: [...built.timeline, ...current.timeline.filter(t => t.origin !== "intake" && !(t.origin === undefined && ["Tenancy started", "Tenancy ended"].includes(t.label)))],
         letter: current.letterOrigin === "ai" && !changed ? current.letter : built.letter,
         letterOrigin: current.letterOrigin === "ai" && !changed ? "ai" : "template" });

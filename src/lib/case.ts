@@ -182,7 +182,7 @@ export function buildCase(a: IntakeAnswers): Case {
   return {
     caseId: crypto.randomUUID(),
     issueType: issueOf(a),
-    repair: a.repair,
+    ...(a.repair ? { repair: a.repair } : {}),
     isSample: false,
     tenantName: base.tenantName,
     landlordName: base.landlordName,

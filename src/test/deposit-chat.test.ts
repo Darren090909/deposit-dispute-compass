@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerField, caseFromChat, emptyChatCase, mergeExtraction, nextDepositQuestion, normaliseValue, memoryProblems, type DepositField, type Extraction } from "@/lib/chat-case";
+import { answerField, canOpenDepositCase, caseFromChat, emptyChatCase, mergeExtraction, nextDepositQuestion, normaliseValue, memoryProblems, type DepositField, type Extraction } from "@/lib/chat-case";
 
 const extracted = (field: DepositField, value: string, quote: string, certainty: "explicit" | "inferred" = "explicit"): Extraction => ({ acknowledgement: "Thanks", updates: [{ field, value, quote, certainty, messageIndex: 0 }] });
 const merge = (field: DepositField, value: string, quote: string) => mergeExtraction(emptyChatCase(), extracted(field, value, quote), [{ role: "user", content: quote }]);
@@ -91,5 +91,32 @@ describe("deposit conversation memory", () => {
   });
   it("cannot pass missing financial amounts off as zero on the dashboard", () => {
     expect(() => caseFromChat(emptyChatCase(), null)).toThrow("Please confirm");
+  });
+  it("does not overwrite a reviewed correction by re-extracting older history", () => {
+    const memory = answerField(emptyChatCase(), "depositAmount", "1900");
+    const result = mergeExtraction(memory, extracted("depositAmount", "1800", "My deposit was £1800"), [
+      { role: "user", content: "My deposit was £1800" },
+      { role: "assistant", content: "Thank you" },
+      { role: "user", content: "I have photos" },
+    ]);
+    expect(result.fields.depositAmount?.value).toBe("1900");
+    expect(result.fields.depositAmount?.status).toBe("confirmed");
+  });
+  it("withholds generated text conclusions that are not in the source quote", () => {
+    expect(merge("tenantView", "The landlord committed fraud", "The carpet was worn").fields.tenantView).toBeUndefined();
+  });
+  it("does not turn an uncertain correction into an accepted fact", () => {
+    const memory = answerField(emptyChatCase(), "depositAmount", "1800");
+    const quote = "Actually, maybe my deposit was £1900";
+    const result = mergeExtraction(memory, extracted("depositAmount", "1900", quote, "inferred"), [{ role: "user", content: quote }]);
+    expect(result.fields.depositAmount?.status).toBe("conflicting");
+  });
+  it("requires four confirmed core answers before the dashboard handoff", () => {
+    let memory = emptyChatCase();
+    expect(canOpenDepositCase(memory)).toBe(false);
+    for (const [field, value] of [["tenantView", "The carpet was worn"], ["deductionReason", "Carpet replacement"], ["depositAmount", "1800"], ["disputedAmount", "1200"]] as const) memory = answerField(memory, field, value);
+    expect(canOpenDepositCase(memory)).toBe(true);
+    expect(canOpenDepositCase(answerField(memory, "disputedAmount", "", true))).toBe(false);
+    expect(canOpenDepositCase(answerField(memory, "disputedAmount", "1900"))).toBe(false);
   });
 });

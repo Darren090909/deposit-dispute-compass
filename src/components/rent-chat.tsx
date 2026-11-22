@@ -99,7 +99,7 @@ export function RentChat() {
     }
   };
 
-  const submit = async ({ text }: { text: string }, nextMemory = memory) => {
+  const submit = async ({ text }: { text: string }, nextMemory = memory, answerMode: "chat" | "reviewed" = "chat") => {
     if (!text.trim() || !consent || busy || !ready || !issue) return;
     const controller = new AbortController();
     pending.current = controller;
@@ -122,7 +122,7 @@ export function RentChat() {
     try {
       if (issue === "deposit") {
         const result = await callDepositChat({ data: {
-          consent: true, issueType: "deposit", memory: nextMemory,
+          consent: true, issueType: "deposit", memory: nextMemory, answerMode,
           messages: history.map(message => ({ role: message.role === "assistant" ? "assistant" : "user", content: messageText(message) })),
         }, signal: controller.signal });
         if (controller.signal.aborted) return;
@@ -205,7 +205,7 @@ export function RentChat() {
   const answer = (field: DepositField, value: string, skip = false) => {
     const next = editField(field, value, skip);
     if (!next) return;
-    void submit({ text: skip ? `I’m not sure about ${DEPOSIT_WORKFLOW[field].label.toLowerCase()}; skip this for now.` : `${DEPOSIT_WORKFLOW[field].label}: ${value}` }, next);
+    void submit({ text: skip ? `I’m not sure about ${DEPOSIT_WORKFLOW[field].label.toLowerCase()}; skip this for now.` : `${DEPOSIT_WORKFLOW[field].label}: ${value}` }, next, "reviewed");
   };
 
   return (
@@ -350,7 +350,7 @@ export function RentChat() {
       {issue && <div className="mb-4 text-center"><Button asChild variant="secondary"><Link to="/intake" search={{ issue }}>Start guided intake</Link></Button></div>}
 
       <PromptInput
-        onSubmit={submit}
+        onSubmit={(message) => submit(message)}
         className="mt-4 [&_[data-slot=input-group]]:bg-card [&_[data-slot=input-group]]:shadow-card"
       >
         <PromptInputTextarea
@@ -365,6 +365,7 @@ export function RentChat() {
         <PromptInputFooter className="justify-end px-3 pb-3">
           <PromptInputSubmit
             status={status}
+            aria-label={busy ? "Stop reply" : "Send message"}
             className="h-9 w-9 shrink-0"
             disabled={!busy && (!draft.trim() || !consent || !ready || !issue)}
             onStop={() => {

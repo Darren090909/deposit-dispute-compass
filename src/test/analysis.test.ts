@@ -79,10 +79,10 @@ describe("analysis safeguards", () => {
     expect(checkFile(new File([new Uint8Array(5 * 1024 * 1024)], "a.txt"))).toBeNull();
     expect(checkFile(new File([new Uint8Array(5 * 1024 * 1024 + 1)], "a.txt"))).not.toBeNull();
   });
-  it("accepts PDF, txt and md but rejects other file types", () => {
-    for (const name of ["a.pdf", "a.txt", "a.md"])
+  it("accepts the supported document, email and photo types but rejects executables", () => {
+    for (const name of ["a.pdf", "a.txt", "a.md", "a.docx", "a.eml", "a.jpg", "a.jpeg", "a.png", "a.webp"])
       expect(checkFile(new File(["text"], name))).toBeNull();
-    expect(checkFile(new File(["text"], "a.docx"))).not.toBeNull();
+    expect(checkFile(new File(["text"], "a.exe"))).not.toBeNull();
   });
   it("enforces the total 120,000-character limit on the server schema", () => {
     const doc = (length: number) => ({

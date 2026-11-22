@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Check, CalendarDays, ArrowRight, Pencil, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DEPOSIT_FIELDS, DEPOSIT_WORKFLOW, nextDepositQuestion, memoryProblems, type ChatCase, type DepositField } from "@/lib/chat-case";
+import { DEPOSIT_FIELDS, DEPOSIT_WORKFLOW, nextDepositQuestion, memoryProblems, canOpenDepositCase, type ChatCase, type DepositField } from "@/lib/chat-case";
 
 interface Props {
   memory: ChatCase;
@@ -63,7 +63,8 @@ export function DepositChatPanel({ memory, busy, canSend, onAnswer, onEdit, onSa
       <p className="text-sm text-muted-foreground">Confirm the summary, gather available documents, then review them on your dashboard. Official legal guidance remains separate below.</p>
       {problems.map(p => <p role="alert" key={p} className="text-sm text-destructive">{p}</p>)}
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={reviewed && reviewVersion === version} onChange={e => { setReviewed(e.target.checked); setReviewVersion(version); }} />I have checked the facts and understand any remaining gaps.</label>
-      <Button disabled={busy || !reviewed || reviewVersion !== version || problems.length > 0} onClick={onSave}><Check />Confirm and open dashboard</Button>
+      {!canOpenDepositCase(memory) && <p className="text-sm text-muted-foreground">Confirm your explanation, the landlord’s reason and both amounts, and resolve any conflicting answers before opening the dashboard.</p>}
+      <Button className="h-auto min-h-10 whitespace-normal" disabled={busy || !reviewed || reviewVersion !== version || !canOpenDepositCase(memory)} onClick={onSave}><Check />Confirm and open dashboard</Button>
     </div>}
   </div>;
 }

@@ -84,19 +84,24 @@ function quoteSupports(field: DepositField, value: string, quote: string): boole
       return isValid(date) && format(date, "yyyy-MM-dd") === value;
     }));
   }
-  return true;
+  // Text extracts must remain the tenant's own words, not generated conclusions.
+  // Choice answers may be normalised from natural language; they remain reported,
+  // never independently verified, and are shown for review before handoff.
+  return definition.type === "choice" || quote.toLowerCase().includes(value.toLowerCase());
 }
 
 export function mergeExtraction(memory: ChatCase, extraction: Extraction, messages: { role: string; content: string }[]): ChatCase {
   const fields = { ...memory.fields };
+  const latestUserIndex = messages.map(message => message.role).lastIndexOf("user");
   for (const update of extraction.updates) {
+    if (update.messageIndex !== latestUserIndex) continue;
     const message = messages[update.messageIndex];
     const value = normaliseValue(update.field, update.value);
     // A generated source cannot give an assistant's speculation user authority.
     if (!message || message.role !== "user" || !message.content.includes(update.quote) || !value || !quoteSupports(update.field, value, update.quote)) continue;
     const old = fields[update.field];
     if (old?.value === value) continue; // Preserve explicit edits, provenance and skip decisions.
-    const correction = /\b(actually|correction|correct that|instead|i meant|not .+ but)\b/i.test(update.quote);
+    const correction = update.certainty === "explicit" && /\b(actually|correction|correct that|instead|i meant|not .+ but)\b/i.test(update.quote);
     if (old && old.status !== "missing" && old.value && old.value !== value && !correction) {
       fields[update.field] = { ...old, status: "conflicting", skipped: false, alternatives: [...new Set([old.value, ...old.alternatives, value])].slice(0, 10), source: `${old.source}; Chat: ${update.quote}`.slice(0, 2000) };
     } else {
@@ -127,6 +132,13 @@ export function memoryProblems(memory: ChatCase): string[] {
   return problems;
 }
 
+export function canOpenDepositCase(memory: ChatCase): boolean {
+  return (["tenantView", "deductionReason", "depositAmount", "disputedAmount"] as const)
+    .every(field => memory.fields[field]?.status === "confirmed" && Boolean(memory.fields[field]?.value))
+    && !DEPOSIT_FIELDS.some(field => memory.fields[field]?.status === "conflicting")
+    && memoryProblems(memory).length === 0;
+}
+
 export function caseFromChat(memory: ChatCase, previous: Case | null): Case {
   const value = (f: DepositField) => memory.fields[f]?.status === "confirmed" ? memory.fields[f]?.value ?? "" : "";
   if (!value("depositAmount") || !value("disputedAmount") || !value("deductionReason") || !value("tenantView")) throw new Error("Please confirm your explanation, the landlord’s reason, deposit amount and disputed amount before opening the dashboard.");
@@ -135,7 +147,7 @@ export function caseFromChat(memory: ChatCase, previous: Case | null): Case {
   if (problem) throw new Error(problem);
   const base = buildCase({ issueType: "deposit", tenantName: value("tenantName"), landlordName: value("landlordName"), address: value("address"), tenancyStart: value("tenancyStart"), tenancyEnd: value("tenancyEnd"), depositAmount: Number(value("depositAmount")), disputedAmount: Number(value("disputedAmount")), scheme: (value("scheme") || "unknown") as Scheme, deductionReason: value("deductionReason"), tenantView: value("tenantView"), documents: {} });
   const sameCase = previous?.issueType === "deposit" || (previous && !previous.issueType);
-  const merged = sameCase && previous ? { ...base, caseId: previous.caseId, documents: previous.documents, analysis: previous.analysis, letter: previous.letter, letterOrigin: previous.letterOrigin } : base;
+  const merged = sameCase && previous ? { ...base, ...(previous.caseId ? { caseId: previous.caseId } : {}), documents: previous.documents, analysis: previous.analysis, letter: previous.letter, ...(previous.letterOrigin ? { letterOrigin: previous.letterOrigin } : {}) } : base;
   return { ...merged, moveOutDate: value("moveOutDate"), chatMemory: memory,
     summary: `You report: ${value("tenantView")}\n\nYou dispute £${value("disputedAmount")} from a £${value("depositAmount")} deposit. Landlord’s stated reason: ${value("deductionReason")}.`,
     facts: DEPOSIT_FIELDS.flatMap(f => value(f) ? [{ text: `${DEPOSIT_WORKFLOW[f].label}: ${value(f)}`, source: memory.fields[f]?.source ?? "Your reviewed answers" }] : []),
