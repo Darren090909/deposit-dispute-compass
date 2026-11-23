@@ -95,9 +95,9 @@ function AnalysisWorkspace({ c }: { c: Case }) {
       <p className="text-sm text-muted-foreground">{documents.length} / 5 files · {total.toLocaleString()} / 120,000 characters. <Link to="/intake" className="text-accent underline">Update your answers</Link></p>
       <details className="text-sm"><summary className="cursor-pointer text-accent">Answers sent with the documents</summary><dl className="mt-3 space-y-2">{Object.entries(analysisInputSchema.innerType().shape.answers.parse(c)).map(([key,v]) => <div key={key}><dt className="font-semibold">{key.replace(/([A-Z])/g," $1")}</dt><dd className="break-words">{String(v) || "Not supplied"}</dd></div>)}</dl></details>
       <div className="space-y-3 border-l-4 border-accent bg-teal-soft p-4 text-sm">
-        <p>Only extracted text, filenames, page/line references and your answers are sent through Lovable AI to OpenAI. The original files are not uploaded. Remove sensitive details you do not want to share.</p>
-        <p>Files and text remain in this page’s memory until analysis finishes or you leave. RentResolve does not save them on its server. This model uses a zero-retention endpoint. Results and edits are saved only in this browser until you delete the analysis or close the case.</p>
-        <p>AI usage draws on the workspace’s allowance or credits.</p>
+        <p>Only extracted text, filenames, page/line references and your answers are sent to the configured AI provider (Google Gemini). The original files are not uploaded. Remove sensitive details you do not want to share.</p>
+        <p>Files and text remain in this page’s memory until analysis finishes or you leave. RentResolve does not save them on its server. Results and edits are saved only in this browser until you delete the analysis or close the case.</p>
+        <p>AI usage draws on the app’s API allowance. When AI is unavailable, a clearly labelled sample analysis is shown instead.</p>
         <label className="flex items-start gap-3"><Checkbox checked={consent} disabled={!!busy} onCheckedChange={v => setConsent(v === true)} />I agree to send this text and my answers to the AI provider.</label>
       </div>
       <Button disabled={!consent || !!busy} onClick={() => void run()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{busy === "reading" ? "Reading documents…" : busy === "analysing" ? "Analysing case…" : c.analysis ? "Run new analysis" : "Analyse my case"}</Button>

@@ -105,4 +105,4 @@ export function analysisResponseSchema(documents: ExtractedDoc[]) {
   });
 }
 
-export type AnalysisResult = { ok: true; analysis: AnalysisOutput } | { ok: false; status: number; message: string };
+export type AnalysisResult = { ok: true; analysis: AnalysisOutput } | { ok: false; status: number; demo?: boolean; analysis?: AnalysisOutput; message: string };

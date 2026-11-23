@@ -1,10 +1,9 @@
-import { GatewayError, streamResponse } from "@lovable.dev/ai-gateway";
+import { AIFailed, AIConfigured, generateJson } from "./ai.server";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { analysisOutputSchema, analysisResponseSchema, type AnalysisInput, type AnalysisResult } from "./analysis-schema";
 import { LEGAL_SOURCES, sourceControlledNotes } from "./legal-sources";
 import { validateAnalysisSources } from "./analysis-utils";
-
-const MODEL = "openai/gpt-6-astra";
+import { SAMPLE_ANALYSIS } from "./sample-analysis";
 
 const INSTRUCTIONS = `You help a private tenant in England organise a deposit dispute, damp/mould issue or unresolved repairs case. You are neutral and careful. Use the selected issue, not a deposit-only assumption.
 
@@ -51,25 +50,14 @@ ${docs || "(no documents supplied)"}`;
 
 export async function runAnalysis(input: AnalysisInput, signal?: AbortSignal): Promise<AnalysisResult> {
   try {
-    const stream = await streamResponse({
-      model: MODEL,
+    if (!AIConfigured()) return { ok: false, status: 503, demo: true, analysis: SAMPLE_ANALYSIS, message: "AI is not configured, so this is a SAMPLE analysis for demonstration only — it was not generated from your documents." };
+    const text = await generateJson({
       instructions: INSTRUCTIONS,
-      input: [{ role: "user", content: buildPrompt(input) }],
-      text: { format: { type: "json_schema", name: "tenancy_analysis", strict: true,
-        schema: zodToJsonSchema(analysisResponseSchema(input.documents), { $refStrategy: "none" }) } },
-      reasoning: { effort: "medium", summary: "auto" },
-      include: ["reasoning.encrypted_content"],
-    }, { ...(signal ? { signal } : {}), maxRetries: 0 });
-    let text = "";
-    let completed = false;
-    let refused = false;
-    for await (const event of stream) {
-      if (event.type === "response.output_text.delta") text += event.delta;
-      if (event.type === "response.refusal.delta") refused = true;
-      if (event.type === "response.completed") completed = true;
-    }
-    if (refused) return { ok: false, status: 403, message: "The AI provider declined this request. No analysis was saved." };
-    if (!completed || !text) return { ok: false, status: 502, message: "The AI response was incomplete. No analysis was saved." };
+      input: buildPrompt(input),
+      schema: zodToJsonSchema(analysisResponseSchema(input.documents), { $refStrategy: "none" }),
+      maxOutputTokens: 8000,
+      ...(signal ? { signal } : {}),
+    });
     const analysis = analysisOutputSchema.parse(JSON.parse(text));
     if (!validateAnalysisSources(analysis, input.documents))
       return { ok: false, status: 502, message: "The AI response included an unrecognised document reference. No analysis was saved." };
@@ -78,13 +66,11 @@ export async function runAnalysis(input: AnalysisInput, signal?: AbortSignal): P
     return { ok: true, analysis };
   } catch (err) {
     // Never log prompts, documents, raw provider responses or exception messages.
-    if (err instanceof GatewayError) {
-      const status = err.httpStatus ?? 500;
-      console.error("analysis gateway error", err.code, status, err.ids);
-      if (status === 402) return { ok: false, status, message: "AI credits have run out for this workspace. Add credits to keep using analysis." };
-      if (status === 429) return { ok: false, status, message: "The AI service is busy. Please wait a minute and try again." };
-      if (status === 403) return { ok: false, status, message: "The AI service declined this request." };
-      return { ok: false, status, message: "The AI service had a problem. Please try again later." };
+    if (err instanceof AIFailed) {
+      if (err.status === 429) return { ok: false, status: err.status, message: err.message };
+      if (err.status === 400) return { ok: false, status: err.status, message: err.message };
+      if (err.status === 503) return { ok: false, status: err.status, demo: true, analysis: SAMPLE_ANALYSIS, message: "AI is not configured, so this is a SAMPLE analysis for demonstration only — it was not generated from your documents." };
+      return { ok: false, status: err.status, message: err.message };
     }
     if (err instanceof SyntaxError || (err instanceof Error && err.name === "ZodError")) {
       return { ok: false, status: 502, message: "The AI response couldn't be read. Please try again." };
